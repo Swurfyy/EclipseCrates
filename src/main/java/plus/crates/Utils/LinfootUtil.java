@@ -1,21 +1,22 @@
 package plus.crates.Utils;
 
-import org.bukkit.ChatColor;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class LinfootUtil {
 
     public static Enchantment getEnchantmentFromNiceName(String name) {
         Enchantment enchantment = null;
         try {
-            enchantment = Enchantment.getByName(name);
+            enchantment = Enchantment.getByKey(org.bukkit.NamespacedKey.minecraft(name.toLowerCase()));
         } catch (Exception ignored) {
         }
 
@@ -24,25 +25,25 @@ public class LinfootUtil {
 
         switch (name.toLowerCase()) {
             case "sharpness":
-                enchantment = Enchantment.DAMAGE_ALL;
+                enchantment = Enchantment.SHARPNESS;
                 break;
             case "unbreaking":
-                enchantment = Enchantment.DURABILITY;
+                enchantment = Enchantment.UNBREAKING;
                 break;
             case "efficiency":
-                enchantment = Enchantment.DIG_SPEED;
+                enchantment = Enchantment.EFFICIENCY;
                 break;
             case "protection":
-                enchantment = Enchantment.PROTECTION_ENVIRONMENTAL;
+                enchantment = Enchantment.PROTECTION;
                 break;
             case "power":
-                enchantment = Enchantment.ARROW_DAMAGE;
+                enchantment = Enchantment.POWER;
                 break;
             case "punch":
-                enchantment = Enchantment.ARROW_KNOCKBACK;
+                enchantment = Enchantment.PUNCH;
                 break;
             case "infinite":
-                enchantment = Enchantment.ARROW_INFINITE;
+                enchantment = Enchantment.INFINITY;
                 break;
         }
 
@@ -55,10 +56,10 @@ public class LinfootUtil {
         }
         ItemMeta itemMeta = itemStack.getItemMeta();
         if (name != null) {
-            itemMeta.setDisplayName(ChatColor.RESET + name);
+            itemMeta.displayName(LegacyComponentSerializer.legacySection().deserialize("§r" + name));
         }
         if (lore != null) {
-            itemMeta.setLore(lore);
+            itemMeta.lore(lore.stream().map(line -> LegacyComponentSerializer.legacySection().deserialize(line)).toList());
         }
         itemStack.setItemMeta(itemMeta);
         return itemStack;
@@ -70,7 +71,7 @@ public class LinfootUtil {
         for (String s : vals.keySet()) {
             Object val = vals.get(s);
             if (val instanceof List)
-                val = new ArrayList((List) val);
+                val = new ArrayList<>((List<?>) val);
             config.set(toPath + toDot + s, val);
         }
     }

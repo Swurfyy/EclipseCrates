@@ -1,6 +1,6 @@
 package plus.crates.Crates;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
@@ -45,13 +45,13 @@ public class Key {
     }
 
     public String getName() {
-        return ChatColor.translateAlternateColorCodes('&', name);
+        return name.replace('&', '§');
     }
 
     public List<String> getLore() {
         if (this.lore.isEmpty()) {
-            this.lore.add(ChatColor.GRAY + "Right-Click on a \"" + getCrate().getName(true) + ChatColor.GRAY + "\" crate");
-            this.lore.add(ChatColor.GRAY + "to win an item!");
+            this.lore.add("§7Right-Click on a \"" + getCrate().getName(true) + "§7\" crate");
+            this.lore.add("§7to win an item!");
             this.lore.add("");
         }
         return this.lore;
@@ -62,13 +62,13 @@ public class Key {
     }
 
     public ItemStack getKeyItem(Integer amount) {
-        ItemStack keyItem = new ItemStack(getMaterial(), amount, getData());
+        ItemStack keyItem = new ItemStack(getMaterial(), amount);
         if (isEnchanted())
-            keyItem.addUnsafeEnchantment(Enchantment.DURABILITY, 1);
+            keyItem.addUnsafeEnchantment(Enchantment.UNBREAKING, 1);
         ItemMeta keyItemMeta = keyItem.getItemMeta();
         String title = getName().replaceAll("%type%", getCrate().getName(true));
-        keyItemMeta.setDisplayName(title);
-        keyItemMeta.setLore(getLore());
+        keyItemMeta.displayName(LegacyComponentSerializer.legacySection().deserialize(title));
+        keyItemMeta.lore(getLore().stream().map(line -> LegacyComponentSerializer.legacySection().deserialize(line)).toList());
         ArrayList<String> flags = new ArrayList<>();
         flags.add("HIDE_ENCHANTS");
         keyItemMeta = cratesPlus.getVersion_util().handleItemFlags(keyItemMeta, flags);
