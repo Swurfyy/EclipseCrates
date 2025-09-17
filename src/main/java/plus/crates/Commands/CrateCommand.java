@@ -1,5 +1,13 @@
 package plus.crates.Commands;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Constructor;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Map;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -15,21 +23,19 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+
 import plus.crates.Crates.Crate;
 import plus.crates.Crates.KeyCrate;
 import plus.crates.Crates.MysteryCrate;
 import plus.crates.CratesPlus;
 import plus.crates.Handlers.MessageHandler;
 import plus.crates.Opener.Opener;
-import plus.crates.Utils.*;
-
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Constructor;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Map;
+import plus.crates.Utils.GUI;
+import plus.crates.Utils.LinfootUtil;
+import plus.crates.Utils.MCDebug;
+import plus.crates.Utils.ReflectionUtil;
+import plus.crates.Utils.SignInputHandler;
+import plus.crates.Utils.SpawnEggNBT;
 
 public class CrateCommand implements CommandExecutor {
     private final CratesPlus cratesPlus;
@@ -200,14 +206,32 @@ public class CrateCommand implements CommandExecutor {
                         cratesPlus.addCreating(player.getUniqueId());
                         try {
                             //Send fake sign cause 1.13
-                            player.sendBlockChange(player.getLocation(), Material.valueOf("SIGN"), (byte) 0);
+                            player.sendBlockChange(player.getLocation(), Material.valueOf("SIGN").createBlockData());
 
-                            Constructor signConstructor = ReflectionUtil.getNMSClass("PacketPlayOutOpenSignEditor").getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
-                            Object packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
-                            SignInputHandler.injectNetty(player);
-                            ReflectionUtil.sendPacket(player, packet);
+                            // Try different possible class names for PacketPlayOutOpenSignEditor
+                            Class<?> packetClass = null;
+                            String[] possiblePacketNames = {
+                                "PacketPlayOutOpenSignEditor", 
+                                "ClientboundOpenSignEditorPacket",
+                                "network.protocol.game.PacketPlayOutOpenSignEditor",
+                                "network.protocol.game.ClientboundOpenSignEditorPacket"
+                            };
+                            
+                            for (String className : possiblePacketNames) {
+                                packetClass = ReflectionUtil.getNMSClass(className);
+                                if (packetClass != null) break;
+                            }
+                            
+                            if (packetClass != null) {
+                                Constructor signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
+                                Object packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
+                                SignInputHandler.injectNetty(player);
+                                ReflectionUtil.sendPacket(player, packet);
+                            } else {
+                                throw new Exception("Could not find PacketPlayOutOpenSignEditor class");
+                            }
 
-                            player.sendBlockChange(player.getLocation(), player.getLocation().getBlock().getType(), player.getLocation().getBlock().getData());
+                            player.sendBlockChange(player.getLocation(), player.getLocation().getBlock().getBlockData());
                         } catch (Exception e) {
                             e.printStackTrace();
                             cratesPlus.removeCreating(player.getUniqueId());

@@ -1,12 +1,12 @@
 package plus.crates.Utils;
 
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 public class ReflectionUtil {
 
@@ -14,11 +14,35 @@ public class ReflectionUtil {
     public static final String CB_PATH = getCBPackageName();
 
     public static String getNMSPackageName() {
-        return "net.minecraft.server." + Bukkit.getServer().getClass().getPackage().getName().replace(".", ",").split(",")[3];
+        try {
+            String packageName = Bukkit.getServer().getClass().getPackage().getName();
+            String[] parts = packageName.split("\\.");
+            if (parts.length >= 4) {
+                return "net.minecraft.server." + parts[3];
+            } else {
+                // Fallback for newer versions
+                return "net.minecraft.server";
+            }
+        } catch (Exception e) {
+            // Fallback for any parsing errors
+            return "net.minecraft.server";
+        }
     }
 
     public static String getCBPackageName() {
-        return "org.bukkit.craftbukkit." + Bukkit.getServer().getClass().getPackage().getName().replace(".", ",").split(",")[3];
+        try {
+            String packageName = Bukkit.getServer().getClass().getPackage().getName();
+            String[] parts = packageName.split("\\.");
+            if (parts.length >= 4) {
+                return "org.bukkit.craftbukkit." + parts[3];
+            } else {
+                // Fallback for newer versions
+                return "org.bukkit.craftbukkit";
+            }
+        } catch (Exception e) {
+            // Fallback for any parsing errors
+            return "org.bukkit.craftbukkit";
+        }
     }
 
     /**
@@ -138,8 +162,40 @@ public class ReflectionUtil {
     public static Object getBlockPosition(Player player) {
         try {
             Object handle = player.getClass().getMethod("getHandle").invoke(player);
-            Constructor constructor = ReflectionUtil.getNMSClass("BlockPosition").getConstructor(ReflectionUtil.getNMSClass("Entity"));
-            return constructor.newInstance(handle);
+            // Try different possible class names for BlockPosition
+            Class<?> blockPositionClass = null;
+            String[] possibleNames = {"BlockPosition", "BlockPos", "core.BlockPosition", "core.BlockPos"};
+            
+            for (String className : possibleNames) {
+                blockPositionClass = getNMSClass(className);
+                if (blockPositionClass != null) break;
+            }
+            
+            if (blockPositionClass != null) {
+                // Try different constructor signatures
+                try {
+                    Constructor constructor = blockPositionClass.getConstructor(ReflectionUtil.getNMSClass("Entity"));
+                    return constructor.newInstance(handle);
+                } catch (Exception e1) {
+                    try {
+                        // Try with int parameters (x, y, z)
+                        Constructor constructor = blockPositionClass.getConstructor(int.class, int.class, int.class);
+                        return constructor.newInstance(
+                            player.getLocation().getBlockX(),
+                            player.getLocation().getBlockY(),
+                            player.getLocation().getBlockZ()
+                        );
+                    } catch (Exception e2) {
+                        // Fallback: create from location
+                        Constructor constructor = blockPositionClass.getConstructor(double.class, double.class, double.class);
+                        return constructor.newInstance(
+                            player.getLocation().getX(),
+                            player.getLocation().getY(),
+                            player.getLocation().getZ()
+                        );
+                    }
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -149,8 +205,36 @@ public class ReflectionUtil {
     public static void sendPacket(Player player, Object packet) {
         try {
             Object handle = player.getClass().getMethod("getHandle").invoke(player);
-            Object playerConnection = handle.getClass().getField("playerConnection").get(handle);
-            playerConnection.getClass().getMethod("sendPacket", ReflectionUtil.getNMSClass("Packet")).invoke(playerConnection, packet);
+            
+            // Try different possible field names for player connection
+            Object playerConnection = null;
+            String[] possibleFields = {"playerConnection", "connection", "b"};
+            
+            for (String fieldName : possibleFields) {
+                try {
+                    Field field = handle.getClass().getField(fieldName);
+                    playerConnection = field.get(handle);
+                    if (playerConnection != null) break;
+                } catch (Exception e) {
+                    // Try next field name
+                }
+            }
+            
+            if (playerConnection != null) {
+                // Try different method names for sending packets
+                String[] possibleMethods = {"sendPacket", "send", "a"};
+                Class<?> packetClass = ReflectionUtil.getNMSClass("Packet");
+                
+                for (String methodName : possibleMethods) {
+                    try {
+                        Method method = playerConnection.getClass().getMethod(methodName, packetClass);
+                        method.invoke(playerConnection, packet);
+                        return; // Success
+                    } catch (Exception e) {
+                        // Try next method name
+                    }
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

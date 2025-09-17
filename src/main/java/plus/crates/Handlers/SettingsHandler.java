@@ -1,6 +1,12 @@
 package plus.crates.Handlers;
 
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import java.lang.reflect.Constructor;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -8,6 +14,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import plus.crates.Crates.Crate;
 import plus.crates.Crates.Winning;
 import plus.crates.CratesPlus;
@@ -16,9 +24,6 @@ import plus.crates.Utils.GUI;
 import plus.crates.Utils.LegacyMaterial;
 import plus.crates.Utils.ReflectionUtil;
 import plus.crates.Utils.SignInputHandler;
-
-import java.lang.reflect.Constructor;
-import java.util.*;
 
 public class SettingsHandler implements Listener {
     private HashMap<UUID, String> renaming = new HashMap<>();
@@ -197,10 +202,28 @@ public class SettingsHandler implements Listener {
                     //Send fake sign cause 1.13
                     player.sendBlockChange(player.getLocation(), Material.valueOf("SIGN").createBlockData());
 
-                    Constructor signConstructor = ReflectionUtil.getNMSClass("PacketPlayOutOpenSignEditor").getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
-                    Object packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
-                    SignInputHandler.injectNetty(player);
-                    ReflectionUtil.sendPacket(player, packet);
+                    // Try different possible class names for PacketPlayOutOpenSignEditor
+                    Class<?> packetClass = null;
+                    String[] possiblePacketNames = {
+                        "PacketPlayOutOpenSignEditor", 
+                        "ClientboundOpenSignEditorPacket",
+                        "network.protocol.game.PacketPlayOutOpenSignEditor",
+                        "network.protocol.game.ClientboundOpenSignEditorPacket"
+                    };
+                    
+                    for (String className : possiblePacketNames) {
+                        packetClass = ReflectionUtil.getNMSClass(className);
+                        if (packetClass != null) break;
+                    }
+                    
+                    if (packetClass != null) {
+                        Constructor signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
+                        Object packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
+                        SignInputHandler.injectNetty(player);
+                        ReflectionUtil.sendPacket(player, packet);
+                    } else {
+                        throw new Exception("Could not find PacketPlayOutOpenSignEditor class");
+                    }
 
                     player.sendBlockChange(player.getLocation(), player.getLocation().getBlock().getBlockData());
                 } catch (Exception e) {
