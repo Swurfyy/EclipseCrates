@@ -2,14 +2,30 @@ name: EclipseCrates
 description: ${project.description}
 main: plus.crates.CratesPlus
 version: ${project.version}
+api-version: 1.21
+load: STARTUP
 author: Connor Linfoot
+website: https://github.com/ConnorLinfoot/CratesPlus
+prefix: EclipseCrates
 softdepend: [HolographicDisplays,IndividualHolograms]
+folia-supported: true
 commands:
   crate:
     description: Main CratesPlus command
     aliases: [cratesplus,crates]
 permissions:
   cratesplus.admin:
+    description: Full administrative access to EclipseCrates
     default: op
   cratesplus.updates:
+    description: Receive update notifications
+    default: op
+  cratesplus.create:
+    description: Create new crates
+    default: op
+  cratesplus.edit:
+    description: Edit existing crates
+    default: op
+  cratesplus.give:
+    description: Give crate keys to players
     default: op

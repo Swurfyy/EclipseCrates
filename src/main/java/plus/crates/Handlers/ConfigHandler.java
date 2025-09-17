@@ -1,13 +1,24 @@
 package plus.crates.Handlers;
 
-import org.bukkit.configuration.file.FileConfiguration;
-import plus.crates.Configs.*;
-import plus.crates.Crates.*;
-import plus.crates.CratesPlus;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import org.bukkit.configuration.file.FileConfiguration;
+
+import plus.crates.Configs.ConfigVersion;
+import plus.crates.Configs.Version2;
+import plus.crates.Configs.Version3;
+import plus.crates.Configs.Version4;
+import plus.crates.Configs.Version5;
+import plus.crates.Configs.Version6;
+import plus.crates.Configs.Version7;
+import plus.crates.Crates.Crate;
+import plus.crates.Crates.DropCrate;
+import plus.crates.Crates.KeyCrate;
+import plus.crates.Crates.MysteryCrate;
+import plus.crates.Crates.SupplyCrate;
+import plus.crates.CratesPlus;
 
 public class ConfigHandler {
     private final CratesPlus cratesPlus;
@@ -20,6 +31,7 @@ public class ConfigHandler {
     private boolean disableKeySwapping = false;
     private boolean debugMode = false;
     private List<ConfigVersion> configVersions = new ArrayList<>();
+    private HashMap<java.util.UUID, String> waitingForInput = new HashMap<>();
 
     public ConfigHandler(FileConfiguration config, CratesPlus cratesPlus) {
         this.cratesPlus = cratesPlus;
@@ -185,6 +197,10 @@ public class ConfigHandler {
 
     public CratesPlus getCratesPlus() {
         return cratesPlus;
+    }
+
+    public HashMap<java.util.UUID, String> getWaitingForInput() {
+        return waitingForInput;
     }
 
 }

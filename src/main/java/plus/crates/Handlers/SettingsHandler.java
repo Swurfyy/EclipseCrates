@@ -1,6 +1,5 @@
 package plus.crates.Handlers;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -8,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,15 +22,13 @@ import plus.crates.CratesPlus;
 import plus.crates.Events.PlayerInputEvent;
 import plus.crates.Utils.GUI;
 import plus.crates.Utils.LegacyMaterial;
-import plus.crates.Utils.ReflectionUtil;
-import plus.crates.Utils.SignInputHandler;
 
 public class SettingsHandler implements Listener {
-    private HashMap<UUID, String> renaming = new HashMap<>();
-    private CratesPlus cratesPlus;
+    private final HashMap<UUID, String> renaming = new HashMap<>();
+    private final CratesPlus cratesPlus;
     private GUI settings;
     private GUI crates;
-    private HashMap<String, String> lastCrateEditing = new HashMap<>();
+    private final HashMap<String, String> lastCrateEditing = new HashMap<>();
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public SettingsHandler(CratesPlus cratesPlus) {
@@ -198,65 +196,13 @@ public class SettingsHandler implements Listener {
             public void doClick(Player player, GUI gui) {
                 player.closeInventory();
                 renaming.put(player.getUniqueId(), crateName);
-                try {
-                    //Send fake sign cause 1.13
-                    player.sendBlockChange(player.getLocation(), Material.valueOf("SIGN").createBlockData());
-
-                    // Try different possible class names for PacketPlayOutOpenSignEditor
-                    Class<?> packetClass = null;
-                    String[] possiblePacketNames = {
-                        "PacketPlayOutOpenSignEditor", 
-                        "ClientboundOpenSignEditorPacket",
-                        "network.protocol.game.PacketPlayOutOpenSignEditor",
-                        "network.protocol.game.ClientboundOpenSignEditorPacket",
-                        "protocol.game.ClientboundOpenSignEditorPacket",
-                        "network.protocol.game.ClientboundBlockEntityDataPacket"
-                    };
-                    
-                    for (String className : possiblePacketNames) {
-                        packetClass = ReflectionUtil.getNMSClass(className);
-                        if (packetClass != null) break;
-                    }
-                    
-                    if (packetClass != null) {
-                        // Try different constructor signatures
-                        Constructor signConstructor = null;
-                        try {
-                            signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
-                        } catch (Exception e1) {
-                            try {
-                                signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPos"));
-                            } catch (Exception e2) {
-                                try {
-                                    signConstructor = packetClass.getConstructor(int.class, int.class, int.class);
-                                } catch (Exception e3) {
-                                    throw new Exception("Could not find suitable constructor for packet class");
-                                }
-                            }
-                        }
-                        
-                        Object packet;
-                        if (signConstructor.getParameterCount() == 1) {
-                            packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
-                        } else {
-                            packet = signConstructor.newInstance(
-                                player.getLocation().getBlockX(),
-                                player.getLocation().getBlockY(),
-                                player.getLocation().getBlockZ()
-                            );
-                        }
-                        
-                        SignInputHandler.injectNetty(player);
-                        ReflectionUtil.sendPacket(player, packet);
-                    } else {
-                        throw new Exception("Could not find PacketPlayOutOpenSignEditor class");
-                    }
-
-                    player.sendBlockChange(player.getLocation(), player.getLocation().getBlock().getBlockData());
-                } catch (Exception e) {
-                    player.sendMessage(cratesPlus.getPluginPrefix() + "§cPlease use /crate rename <old> <new>");
-                    renaming.remove(player.getUniqueId());
-                }
+                
+                // Use chat-based input instead of sign input for better compatibility
+                player.sendMessage(cratesPlus.getPluginPrefix() + "§aPlease type the new name for the crate in chat:");
+                player.sendMessage(cratesPlus.getPluginPrefix() + "§7Type 'cancel' to cancel this operation.");
+                
+                // Store the player in a waiting state for chat input
+                cratesPlus.getConfigHandler().getWaitingForInput().put(player.getUniqueId(), "rename_crate");
             }
         });
 
@@ -436,7 +382,7 @@ public class SettingsHandler implements Listener {
                 GUI.ignoreClosing.add(player.getUniqueId());
                 // Convert color code to ChatColor for backward compatibility
                 try {
-                    org.bukkit.ChatColor color = org.bukkit.ChatColor.valueOf(colorCode.substring(1).toUpperCase());
+                    ChatColor color = ChatColor.valueOf(colorCode.substring(1).toUpperCase());
                     if (color != null) {
                         crate.setColor(color);
                         player.sendMessage(color.name());

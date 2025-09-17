@@ -1,9 +1,24 @@
 package plus.crates;
 
-import com.google.common.io.ByteStreams;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.block.Block;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -12,23 +27,33 @@ import org.bukkit.event.Listener;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import com.google.common.io.ByteStreams;
+
 import plus.crates.Commands.CrateCommand;
 import plus.crates.Crates.Crate;
 import plus.crates.Crates.KeyCrate;
-import plus.crates.Handlers.*;
+import plus.crates.Handlers.ConfigHandler;
+import plus.crates.Handlers.CrateHandler;
+import plus.crates.Handlers.HologramHandler;
+import plus.crates.Handlers.MessageHandler;
+import plus.crates.Handlers.OpenHandler;
+import plus.crates.Handlers.SettingsHandler;
+import plus.crates.Handlers.StorageHandler;
 import plus.crates.Listeners.BlockListeners;
 import plus.crates.Listeners.GUIListeners;
+import plus.crates.Listeners.PlayerChat;
 import plus.crates.Listeners.PlayerInteract;
 import plus.crates.Listeners.PlayerJoin;
-import plus.crates.Utils.*;
-
-import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import plus.crates.Utils.LinfootUpdater;
+import plus.crates.Utils.LinfootUtil;
+import plus.crates.Utils.MCDebug;
+import plus.crates.Utils.Metrics;
+import plus.crates.Utils.MetricsCustom;
+import plus.crates.Utils.Version_1_21;
+import plus.crates.Utils.Version_1_8;
+import plus.crates.Utils.Version_1_9;
+import plus.crates.Utils.Version_Util;
 
 public class CratesPlus extends JavaPlugin implements Listener {
     private String pluginPrefix = "";
@@ -43,9 +68,12 @@ public class CratesPlus extends JavaPlugin implements Listener {
     private String bukkitVersion = "0.0";
     private Version_Util version_util;
     private static OpenHandler openHandler;
-    private ArrayList<UUID> creatingCrate = new ArrayList<>();
+    private final ArrayList<UUID> creatingCrate = new ArrayList<>();
 
+    @Override
     public void onEnable() {
+        getLogger().info("Enabling EclipseCrates v" + getDescription().getVersion());
+        
         Server server = getServer();
         Pattern pattern = Pattern.compile("(^[^\\-]*)");
         Matcher matcher = pattern.matcher(server.getBukkitVersion());
@@ -55,6 +83,7 @@ public class CratesPlus extends JavaPlugin implements Listener {
             return;
         }
         bukkitVersion = matcher.group(1);
+        getLogger().info("Detected server version: " + bukkitVersion);
 
         if (getConfig().isSet("Bukkit Version"))
             bukkitVersion = getConfig().getString("Bukkit Version");
@@ -144,6 +173,7 @@ public class CratesPlus extends JavaPlugin implements Listener {
         Bukkit.getPluginManager().registerEvents(new PlayerJoin(this), this);
         Bukkit.getPluginManager().registerEvents(new GUIListeners(), this);
         Bukkit.getPluginManager().registerEvents(new PlayerInteract(this), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerChat(this), this);
 
         openHandler = new OpenHandler(this);
 
@@ -184,8 +214,11 @@ public class CratesPlus extends JavaPlugin implements Listener {
         }
     }
 
+    @Override
     public void onDisable() {
+        getLogger().info("Disabling EclipseCrates v" + getDescription().getVersion());
         getConfigHandler().getCrates().forEach((key, crate) -> crate.onDisable());
+        getLogger().info("EclipseCrates has been disabled successfully");
     }
 
     public String uploadConfig() {

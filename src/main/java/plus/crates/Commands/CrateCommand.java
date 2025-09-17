@@ -3,14 +3,12 @@ package plus.crates.Commands;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.Constructor;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -33,8 +31,6 @@ import plus.crates.Opener.Opener;
 import plus.crates.Utils.GUI;
 import plus.crates.Utils.LinfootUtil;
 import plus.crates.Utils.MCDebug;
-import plus.crates.Utils.ReflectionUtil;
-import plus.crates.Utils.SignInputHandler;
 import plus.crates.Utils.SpawnEggNBT;
 
 public class CrateCommand implements CommandExecutor {
@@ -204,73 +200,13 @@ public class CrateCommand implements CommandExecutor {
                         player = (Player) sender;
 
                         cratesPlus.addCreating(player.getUniqueId());
-                        try {
-                            //Send fake sign cause 1.13
-                            player.sendBlockChange(player.getLocation(), Material.valueOf("SIGN").createBlockData());
-
-                            // Try different possible class names for PacketPlayOutOpenSignEditor
-                            Class<?> packetClass = null;
-                            String[] possiblePacketNames = {
-                                "PacketPlayOutOpenSignEditor", 
-                                "ClientboundOpenSignEditorPacket",
-                                "network.protocol.game.PacketPlayOutOpenSignEditor",
-                                "network.protocol.game.ClientboundOpenSignEditorPacket",
-                                "protocol.game.ClientboundOpenSignEditorPacket",
-                                "network.protocol.game.ClientboundBlockEntityDataPacket"
-                            };
-                            
-                            // Debug: Print NMS path
-                            player.sendMessage("§7Debug: NMS Path = " + ReflectionUtil.NMS_PATH);
-                            
-                            for (String className : possiblePacketNames) {
-                                packetClass = ReflectionUtil.getNMSClass(className);
-                                if (packetClass != null) {
-                                    player.sendMessage("§7Debug: Found class: " + className);
-                                    break;
-                                } else {
-                                    player.sendMessage("§7Debug: Class not found: " + className);
-                                }
-                            }
-                            
-                            if (packetClass != null) {
-                                // Try different constructor signatures
-                                Constructor signConstructor = null;
-                                try {
-                                    signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
-                                } catch (Exception e1) {
-                                    try {
-                                        signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPos"));
-                                    } catch (Exception e2) {
-                                        try {
-                                            signConstructor = packetClass.getConstructor(int.class, int.class, int.class);
-                                        } catch (Exception e3) {
-                                            throw new Exception("Could not find suitable constructor for packet class");
-                                        }
-                                    }
-                                }
-                                
-                                Object packet;
-                                if (signConstructor.getParameterCount() == 1) {
-                                    packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
-                                } else {
-                                    packet = signConstructor.newInstance(
-                                        player.getLocation().getBlockX(),
-                                        player.getLocation().getBlockY(),
-                                        player.getLocation().getBlockZ()
-                                    );
-                                }
-                                
-                                SignInputHandler.injectNetty(player);
-                                ReflectionUtil.sendPacket(player, packet);
-                            } else {
-                                throw new Exception("Could not find PacketPlayOutOpenSignEditor class");
-                            }
-
-                            player.sendBlockChange(player.getLocation(), player.getLocation().getBlock().getBlockData());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            cratesPlus.removeCreating(player.getUniqueId());
-                        }
+                        
+                        // Use chat-based input instead of sign input for better compatibility
+                        player.sendMessage(cratesPlus.getPluginPrefix() + "§aPlease type the name of the crate you want to create in chat:");
+                        player.sendMessage(cratesPlus.getPluginPrefix() + "§7Type 'cancel' to cancel this operation.");
+                        
+                        // Store the player in a waiting state for chat input
+                        cratesPlus.getConfigHandler().getWaitingForInput().put(player.getUniqueId(), "create_crate");
                         return true;
                     }
 

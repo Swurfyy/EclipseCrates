@@ -65,6 +65,8 @@ public class ReflectionUtil {
         try {
             return Class.forName(name);
         } catch (ClassNotFoundException e) {
+            // Debug: Print what we're looking for
+            System.out.println("[EclipseCrates] Class not found: " + name);
         }
         return null;
     }
