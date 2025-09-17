@@ -20,7 +20,19 @@ public class ReflectionUtil {
             if (parts.length >= 4) {
                 return "net.minecraft.server." + parts[3];
             } else {
-                // Fallback for newer versions
+                // Fallback for newer versions - try to get from Bukkit class
+                try {
+                    Class<?> craftServerClass = Bukkit.getServer().getClass();
+                    String serverClassName = craftServerClass.getName();
+                    // Extract version from class name like org.bukkit.craftbukkit.v1_21_R1.CraftServer
+                    if (serverClassName.contains("craftbukkit.v")) {
+                        String version = serverClassName.substring(serverClassName.indexOf("craftbukkit.v") + 13);
+                        version = version.substring(0, version.indexOf("."));
+                        return "net.minecraft.server." + version;
+                    }
+                } catch (Exception e2) {
+                    // Ignore
+                }
                 return "net.minecraft.server";
             }
         } catch (Exception e) {

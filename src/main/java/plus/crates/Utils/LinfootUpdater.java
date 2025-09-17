@@ -38,8 +38,18 @@ public class LinfootUpdater {
         try {
             data = doCurl(url);
         } catch (IOException e) {
-            e.printStackTrace();
+            cratesPlus.getLogger().warning("Failed to check for updates: " + e.getMessage());
+            result = UpdateResult.FAILED;
+            return;
         }
+        
+        // Check if we got a valid response
+        if (data == null || data.trim().isEmpty()) {
+            cratesPlus.getLogger().warning("Update check returned empty response");
+            result = UpdateResult.FAILED;
+            return;
+        }
+        
         JSONParser jsonParser = new JSONParser();
         try {
             JSONObject obj = (JSONObject) jsonParser.parse(data);
@@ -59,7 +69,9 @@ public class LinfootUpdater {
                 }
             }
         } catch (ParseException e) {
-            e.printStackTrace();
+            cratesPlus.getLogger().warning("Failed to parse update response: " + e.getMessage());
+            cratesPlus.getLogger().warning("Response data: " + data);
+            result = UpdateResult.FAILED;
         }
     }
 
@@ -78,8 +90,18 @@ public class LinfootUpdater {
         con.setInstanceFollowRedirects(true);
         con.setDoOutput(true);
         con.setDoInput(true);
+        con.setConnectTimeout(5000); // 5 second timeout
+        con.setReadTimeout(5000); // 5 second timeout
+        
         DataOutputStream output = new DataOutputStream(con.getOutputStream());
         output.close();
+        
+        // Check response code
+        int responseCode = con.getResponseCode();
+        if (responseCode != HttpURLConnection.HTTP_OK) {
+            throw new IOException("HTTP error code: " + responseCode);
+        }
+        
         DataInputStream input = new DataInputStream(con.getInputStream());
         int c;
         StringBuilder resultBuf = new StringBuilder();

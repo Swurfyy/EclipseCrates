@@ -208,7 +208,9 @@ public class SettingsHandler implements Listener {
                         "PacketPlayOutOpenSignEditor", 
                         "ClientboundOpenSignEditorPacket",
                         "network.protocol.game.PacketPlayOutOpenSignEditor",
-                        "network.protocol.game.ClientboundOpenSignEditorPacket"
+                        "network.protocol.game.ClientboundOpenSignEditorPacket",
+                        "protocol.game.ClientboundOpenSignEditorPacket",
+                        "network.protocol.game.ClientboundBlockEntityDataPacket"
                     };
                     
                     for (String className : possiblePacketNames) {
@@ -217,8 +219,33 @@ public class SettingsHandler implements Listener {
                     }
                     
                     if (packetClass != null) {
-                        Constructor signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
-                        Object packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
+                        // Try different constructor signatures
+                        Constructor signConstructor = null;
+                        try {
+                            signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPosition"));
+                        } catch (Exception e1) {
+                            try {
+                                signConstructor = packetClass.getConstructor(ReflectionUtil.getNMSClass("BlockPos"));
+                            } catch (Exception e2) {
+                                try {
+                                    signConstructor = packetClass.getConstructor(int.class, int.class, int.class);
+                                } catch (Exception e3) {
+                                    throw new Exception("Could not find suitable constructor for packet class");
+                                }
+                            }
+                        }
+                        
+                        Object packet;
+                        if (signConstructor.getParameterCount() == 1) {
+                            packet = signConstructor.newInstance(ReflectionUtil.getBlockPosition(player));
+                        } else {
+                            packet = signConstructor.newInstance(
+                                player.getLocation().getBlockX(),
+                                player.getLocation().getBlockY(),
+                                player.getLocation().getBlockZ()
+                            );
+                        }
+                        
                         SignInputHandler.injectNetty(player);
                         ReflectionUtil.sendPacket(player, packet);
                     } else {
