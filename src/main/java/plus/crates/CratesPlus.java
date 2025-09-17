@@ -166,7 +166,9 @@ public class CratesPlus extends JavaPlugin implements Listener {
         pluginPrefix = ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("Prefix", "&7[&bCratesPlus&7]")) + " " + ChatColor.RESET;
 
         // Register /crate command
-        Bukkit.getPluginCommand("crate").setExecutor(new CrateCommand(this));
+        CrateCommand crateCommand = new CrateCommand(this);
+        Bukkit.getPluginCommand("crate").setExecutor(crateCommand);
+        Bukkit.getPluginCommand("crate").setTabCompleter(crateCommand);
 
         // Register Events
         Bukkit.getPluginManager().registerEvents(new BlockListeners(this), this);

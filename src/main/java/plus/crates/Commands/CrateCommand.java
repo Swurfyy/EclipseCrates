@@ -5,6 +5,9 @@ import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import org.bukkit.Bukkit;
@@ -13,6 +16,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -33,7 +37,7 @@ import plus.crates.Utils.LinfootUtil;
 import plus.crates.Utils.MCDebug;
 import plus.crates.Utils.SpawnEggNBT;
 
-public class CrateCommand implements CommandExecutor {
+public class CrateCommand implements CommandExecutor, TabCompleter {
     private final CratesPlus cratesPlus;
 
     public CrateCommand(CratesPlus cratesPlus) {
@@ -304,6 +308,26 @@ public class CrateCommand implements CommandExecutor {
 
                     sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.GREEN + name + " crate has been deleted");
                     break;
+                case "edit":
+                    if (args.length < 2) {
+                        sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.RED + "Correct Usage: /crate edit <name>");
+                        return false;
+                    }
+
+                    name = args[1];
+                    if (!cratesPlus.getConfigHandler().getCrates().containsKey(name.toLowerCase())) {
+                        sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.RED + name + " crate was not found");
+                        return false;
+                    }
+
+                    if (!(sender instanceof Player)) {
+                        sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.RED + "This command must be ran as a player");
+                        return false;
+                    }
+
+                    // Open the settings GUI for the specific crate
+                    cratesPlus.getSettingsHandler().openCrate((Player) sender, name);
+                    break;
                 case "mysterygui":
                     if (args.length < 2) {
                         sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.RED + "Correct Usage: /crate mysterygui <crate>");
@@ -425,17 +449,18 @@ public class CrateCommand implements CommandExecutor {
             // Help Messages
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "----- CratePlus v" + cratesPlus.getDescription().getVersion() + " Help -----");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate reload " + ChatColor.YELLOW + "Reload configuration for CratesPlus (Experimental)");
-//			sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate settings " + ChatColor.YELLOW + "Edit settings of CratesPlus and crate winnings");
+            sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate settings " + ChatColor.YELLOW + "Edit settings of CratesPlus and crate winnings");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate create <name> " + ChatColor.YELLOW + "Create a new crate");
+            sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate edit <name> " + ChatColor.YELLOW + "Edit an existing crate");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate rename <old name> <new name> " + ChatColor.YELLOW + "Rename a crate");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate delete <name> " + ChatColor.YELLOW + "Delete a crate");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate give <player/all> [crate] [amount] " + ChatColor.YELLOW + "Give player a crate/key, if no crate given it will be random");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate crate <type> [player] " + ChatColor.YELLOW + "Give player a crate to be placed, for use by admins");
             sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate debug " + ChatColor.YELLOW + "Generates a debug link for sending info about your server and config");
-//			sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate claim " + ChatColor.YELLOW + "Claim any keys that are waiting for you");
+            sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate claim " + ChatColor.YELLOW + "Claim any keys that are waiting for you");
 
 
-            //			sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate opener <name/type> <opener> " + ChatColor.YELLOW + "- Change the opener for a specific crate or crate type");
+            sender.sendMessage(cratesPlus.getPluginPrefix() + ChatColor.AQUA + "/crate opener <crate> <opener> " + ChatColor.YELLOW + "Change the opener for a specific crate");
         }
 
         return true;
@@ -503,6 +528,111 @@ public class CrateCommand implements CommandExecutor {
             ex.printStackTrace();
             return null;
         }
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+        
+        if (args.length == 1) {
+            // First argument - main command options
+            List<String> mainCommands = Arrays.asList(
+                "create", "delete", "rename", "give", "crate", "keycrate", 
+                "reload", "settings", "debug", "claim", "mysterygui", 
+                "opener", "openers", "testmessages", "testeggs", "key", "edit"
+            );
+            
+            for (String cmd : mainCommands) {
+                if (cmd.toLowerCase().startsWith(args[0].toLowerCase())) {
+                    completions.add(cmd);
+                }
+            }
+        } else if (args.length == 2) {
+            // Second argument - depends on first argument
+            switch (args[0].toLowerCase()) {
+                case "delete":
+                case "rename":
+                case "mysterygui":
+                case "crate":
+                case "keycrate":
+                case "edit":
+                    // Show available crate names
+                    for (String crateName : cratesPlus.getConfigHandler().getCrates().keySet()) {
+                        if (crateName.toLowerCase().startsWith(args[1].toLowerCase())) {
+                            completions.add(crateName);
+                        }
+                    }
+                    break;
+                case "give":
+                case "key":
+                    // Show player names and special options
+                    List<String> giveOptions = Arrays.asList("all", "alloffline");
+                    for (String option : giveOptions) {
+                        if (option.toLowerCase().startsWith(args[1].toLowerCase())) {
+                            completions.add(option);
+                        }
+                    }
+                    // Add online player names
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
+                            completions.add(player.getName());
+                        }
+                    }
+                    break;
+                case "opener":
+                case "openers":
+                    // Show available crate names for opener command
+                    for (String crateName : cratesPlus.getConfigHandler().getCrates().keySet()) {
+                        if (crateName.toLowerCase().startsWith(args[1].toLowerCase())) {
+                            completions.add(crateName);
+                        }
+                    }
+                    break;
+            }
+        } else if (args.length == 3) {
+            // Third argument - depends on previous arguments
+            switch (args[0].toLowerCase()) {
+                case "give":
+                case "key":
+                    // Show available crate names
+                    for (String crateName : cratesPlus.getConfigHandler().getCrates().keySet()) {
+                        if (crateName.toLowerCase().startsWith(args[2].toLowerCase())) {
+                            completions.add(crateName);
+                        }
+                    }
+                    break;
+                case "opener":
+                case "openers":
+                    // Show available opener names
+                    for (String openerName : CratesPlus.getOpenHandler().getRegistered().keySet()) {
+                        if (openerName.toLowerCase().startsWith(args[2].toLowerCase())) {
+                            completions.add(openerName);
+                        }
+                    }
+                    break;
+                case "crate":
+                case "keycrate":
+                    // Show online player names
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        if (player.getName().toLowerCase().startsWith(args[2].toLowerCase())) {
+                            completions.add(player.getName());
+                        }
+                    }
+                    break;
+            }
+        } else if (args.length == 4) {
+            // Fourth argument - for amount in give command
+            if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("key")) {
+                List<String> amounts = Arrays.asList("1", "5", "10", "16", "32", "64");
+                for (String amount : amounts) {
+                    if (amount.startsWith(args[3])) {
+                        completions.add(amount);
+                    }
+                }
+            }
+        }
+        
+        return completions;
     }
 
 }
